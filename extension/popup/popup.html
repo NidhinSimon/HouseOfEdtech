@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Applywise Job IQ</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="extension-wrapper">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-mark">A</span>
+        <span class="logo-text">Applywise <span class="badge">Job IQ</span></span>
+      </div>
+      <div class="status-indicator">
+        <span class="dot pulse"></span>
+        <span id="connection-status">Online</span>
+      </div>
+    </header>
+
+    <!-- Tab Selection -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-save">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        Scrape & Save
+      </button>
+      <button class="tab-btn" data-tab="tab-profile">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        Autofill Settings
+      </button>
+    </div>
+
+    <!-- Main Views -->
+    <main class="content">
+      <!-- VIEW A: SCRAPE & SAVE -->
+      <section id="tab-save" class="tab-view active">
+        <div id="loading-scraper" class="loading-state">
+          <div class="spinner"></div>
+          <p>Analyzing job board page details...</p>
+        </div>
+
+        <div id="no-job-detected" class="error-state hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <h3>No Job Post Detected</h3>
+          <p>Navigate to a job page on LinkedIn, Indeed, Naukri, Glassdoor, or Hirist, and open this popup to automatically scrape listing data.</p>
+          <button id="manual-fill-btn" class="btn btn-outlined">Add Manually</button>
+        </div>
+
+        <form id="scraper-form" class="job-form hidden">
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="job-title">Job Title</label>
+              <input type="text" id="job-title" placeholder="e.g. Software Engineer" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="job-company">Company</label>
+              <input type="text" id="job-company" placeholder="e.g. Stripe" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="job-location">Location</label>
+              <input type="text" id="job-location" placeholder="e.g. Bangalore, KA">
+            </div>
+            <div class="form-group flex-1">
+              <label for="job-workmode">Work Mode</label>
+              <select id="job-workmode">
+                <option value="Remote">Remote</option>
+                <option value="Hybrid" selected>Hybrid</option>
+                <option value="On-site">On-site</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="job-experience">Experience</label>
+              <select id="job-experience">
+                <option value="Junior">Junior (0-2 yrs)</option>
+                <option value="Mid-Level" selected>Mid-Level (2-5 yrs)</option>
+                <option value="Senior">Senior (5-8 yrs)</option>
+                <option value="Lead">Lead / Architect (8+ yrs)</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label for="job-url">Listing URL</label>
+              <input type="url" id="job-url" placeholder="https://linkedin.com/jobs/...">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+              <label for="job-description" style="margin-bottom: 0;">Job Description</label>
+              <span id="jd-word-count" style="font-size: 10px; color: var(--text-muted);">0 words</span>
+            </div>
+            <textarea id="job-description" rows="4" placeholder="Paste full job specifications here for AI Match scoring & Resume alignment..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="job-notes">Personal Notes</label>
+            <input type="text" id="job-notes" placeholder="e.g. Referral from SDE-2 at tech meetup.">
+          </div>
+
+          <div id="save-status" class="toast hidden"></div>
+
+          <button type="submit" id="save-job-btn" class="btn btn-primary">
+            Sync to Applywise Dashboard
+          </button>
+        </form>
+      </section>
+
+      <!-- VIEW B: PROFILE AUTOFILL -->
+      <section id="tab-profile" class="tab-view">
+        <form id="profile-form" class="profile-form">
+          <div class="section-title">Personal Information</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="prof-name">Full Name</label>
+              <input type="text" id="prof-name" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+              <label for="prof-email">Email Address</label>
+              <input type="email" id="prof-email" placeholder="john.doe@example.com">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="prof-phone">Phone Number</label>
+              <input type="tel" id="prof-phone" placeholder="+91 98765 43210">
+            </div>
+            <div class="form-group">
+              <label for="prof-salary">Expected CTC (LPA)</label>
+              <input type="text" id="prof-salary" placeholder="₹18 - ₹24 LPA">
+            </div>
+          </div>
+
+          <div class="section-title">Career Links & Screening Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="prof-linkedin">LinkedIn URL</label>
+              <input type="url" id="prof-linkedin" placeholder="https://linkedin.com/in/johndoe">
+            </div>
+            <div class="form-group">
+              <label for="prof-github">GitHub / Portfolio URL</label>
+              <input type="url" id="prof-github" placeholder="https://github.com/johndoe">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="prof-relocate">Relocation Ok?</label>
+              <select id="prof-relocate">
+                <option value="Yes">Yes, willing to relocate</option>
+                <option value="No">No, Remote/Current city only</option>
+                <option value="Negotiable">Negotiable / Hybrid option</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="prof-notice">Notice Period (Days)</label>
+              <select id="prof-notice">
+                <option value="Immediate">Immediate / Serving Notice</option>
+                <option value="15 Days">15 Days or less</option>
+                <option value="30 Days" selected>30 Days</option>
+                <option value="60 Days">60 Days</option>
+                <option value="90 Days">90 Days</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="prof-sponsor">Requires Visa Sponsorship?</label>
+            <select id="prof-sponsor">
+              <option value="No">No, I do not require sponsorship</option>
+              <option value="Yes">Yes, I will require sponsorship</option>
+            </select>
+          </div>
+
+          <div id="profile-status" class="toast hidden"></div>
+
+          <button type="button" id="save-profile-btn" class="btn btn-primary">
+            Save Candidate Profile
+          </button>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

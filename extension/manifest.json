@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Applywise Job IQ Scraper",
+  "version": "1.0.0",
+  "description": "AI-assisted job card scraper and screen profile autofill utility for Applywise dashboard.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "*://*.indeed.com/*",
+    "*://*.naukri.com/*",
+    "*://*.hirist.com/*",
+    "*://*.glassdoor.com/*",
+    "http://localhost:3000/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/*",
+        "*://*.indeed.com/*",
+        "*://*.naukri.com/*",
+        "*://*.hirist.com/*",
+        "*://*.glassdoor.com/*"
+      ],
+      "js": [
+        "scripts/content.js",
+        "scripts/quicksave.js",
+        "scripts/autofill.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -151,7 +151,7 @@ function AuthContent() {
       }}>
 
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '28px' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '28px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
           <div style={{
             width: '32px', height: '32px', borderRadius: '9px',
             background: 'linear-gradient(135deg, #F97316, #EA580C)',
@@ -159,7 +159,7 @@ function AuthContent() {
             fontWeight: 900, fontSize: '16px', color: '#fff',
           }}>A</div>
           <span style={{ fontWeight: 700, fontSize: '16px' }}>Applywise</span>
-        </div>
+        </Link>
 
         {/* Heading */}
         <div style={{ marginBottom: '28px' }}>

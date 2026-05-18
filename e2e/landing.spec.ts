@@ -8,10 +8,10 @@ test('landing page loads correctly with topbar and footer', async ({ page }) => 
   await expect(page.locator('text=Applywise').first()).toBeVisible();
 
   // Check if the Footer contains the author name
-  await expect(page.locator('footer').first()).toContainText('Built by Nidhi');
+  await expect(page.locator('footer').first()).toContainText('Built by Nidhin');
   
   // Check if the Footer contains the GitHub link
   const githubLink = page.locator('footer a', { hasText: 'GitHub Profile' }).first();
   await expect(githubLink).toBeVisible();
-  await expect(githubLink).toHaveAttribute('href', 'https://github.com/nidhi');
+  await expect(githubLink).toHaveAttribute('href', 'https://github.com/NidhinSimon');
 });

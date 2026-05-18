@@ -258,6 +258,34 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) to access the premium glassmorphic dashboard!
 
+### Part IV: Comprehensive Testing Suite
+
+Applywise features a dual-layer professional testing suite to guarantee execution correctness and stability:
+
+1. **Unit Testing (Jest & React Testing Library)**:
+   * Validates individual components, state updates, and helper methods.
+   * Run the unit tests:
+     ```bash
+     npm run test
+     ```
+   * Jest is optimized with isolated ignore patterns (`e2e/`, `.next/`) to complete runs in under ~3 seconds.
+
+2. **End-to-End (E2E) Testing (Playwright)**:
+   * Simulates real-user browser flows, rendering the application in actual headless Chrome to verify UI assembly, topbar navigation, active link highlights, and cookie sessions.
+   * Run E2E tests:
+     ```bash
+     npm run e2e
+     ```
+
+### Part V: Brand & Layout Consistency Updates
+
+To deliver a polished, distraction-free premium experience:
+* **Unified Global Sticky Footer**: Consolidated manual page footers into a single, beautifully styled dynamic component. Includes credits to `Built by Nidhin` linking directly to:
+  * **GitHub**: [NidhinSimon](https://github.com/NidhinSimon)
+  * **LinkedIn**: [NidhinSimon](https://www.linkedin.com/in/nidhinsimon/)
+* **Logo Navigation Links**: Both the main homepage `Navbar` brand logo and the `Auth` login card logo are interactive links that redirect to `/`.
+* **Sleek Minimal Navbar**: Removed pricing section links from the top navbar to keep the focus clean, premium, and centered around tracking & analytics power-features.
+
 ---
 
 ## 🗺️ Key Core File Navigation Directory

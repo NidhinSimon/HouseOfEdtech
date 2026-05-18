@@ -5,20 +5,20 @@ describe('Footer Component', () => {
   it('renders the author name', () => {
     render(<Footer />);
     expect(screen.getByText(/Built by/i)).toBeInTheDocument();
-    expect(screen.getByText('Nidhi')).toBeInTheDocument();
+    expect(screen.getByText('Nidhin')).toBeInTheDocument();
   });
 
   it('contains a link to the GitHub profile', () => {
     render(<Footer />);
     const githubLink = screen.getByText(/GitHub Profile/i);
     expect(githubLink).toBeInTheDocument();
-    expect(githubLink.closest('a')).toHaveAttribute('href', 'https://github.com/nidhi');
+    expect(githubLink.closest('a')).toHaveAttribute('href', 'https://github.com/NidhinSimon');
   });
 
   it('contains a link to the LinkedIn profile', () => {
     render(<Footer />);
     const linkedinLink = screen.getByText(/LinkedIn Profile/i);
     expect(linkedinLink).toBeInTheDocument();
-    expect(linkedinLink.closest('a')).toHaveAttribute('href', 'https://linkedin.com/in/nidhi');
+    expect(linkedinLink.closest('a')).toHaveAttribute('href', 'https://www.linkedin.com/in/nidhinsimon/');
   });
 });

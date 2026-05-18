@@ -83,7 +83,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section style={{ marginTop: '120px' }}>
+      <section style={{ marginTop: '120px', paddingBottom: '120px' }}>
         <div style={{ textAlign: 'center', marginBottom: '60px' }}>
           <div className="section-label">HOW IT WORKS</div>
           <h2 style={{ fontSize: '28px' }}>Your job search, automated.</h2>
@@ -107,31 +107,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '40px', marginTop: '80px', paddingBottom: '40px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '0 24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="nav-logo">
-              <span className="mark">A</span>
-              <span>Applywise</span>
-            </div>
-            <div style={{ display: 'flex', gap: '32px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              <Link href="#">Privacy</Link>
-              <Link href="#">Terms</Link>
-              <Link href="#">Contact</Link>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-            <div>
-              Built by <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Nidhin</span>
-            </div>
-            <div style={{ display: 'flex', gap: '24px' }}>
-              <a href="https://github.com/NidhinSimon" target="_blank" rel="noopener noreferrer" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>GitHub</a>
-              <a href="https://www.linkedin.com/in/nidhinsimon/" target="_blank" rel="noopener noreferrer" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>LinkedIn</a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

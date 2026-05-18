@@ -8,7 +8,7 @@ export default function LandingPage() {
   return (
     <main className="container">
       <Navbar />
-      
+
       <section className="hero">
         <div className="hero-glow"></div>
         <div>
@@ -18,8 +18,8 @@ export default function LandingPage() {
             <span className="muted">Optimize your future.</span>
           </h1>
           <p className="hero-subtext">
-            Applywise is the ultimate unified dashboard for your career journey. 
-            AI-powered resume analysis, real-time application tracking, and 
+            Applywise is the ultimate unified dashboard for your career journey.
+            AI-powered resume analysis, real-time application tracking, and
             smart job matches—all in one premium interface.
           </p>
           <div className="hero-buttons">
@@ -32,7 +32,7 @@ export default function LandingPage() {
             <div className="bullet"><div className="bullet-dot"></div> Multi-platform Integration</div>
           </div>
         </div>
-        
+
         <div className="hero-mockup">
           <div className="floating-card floating-card-a">
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#4285F4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>G</div>
@@ -41,7 +41,7 @@ export default function LandingPage() {
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Interviewing</div>
             </div>
           </div>
-          
+
           <div className="card mockup-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div className="section-label">APPLICATION STATUS</div>
@@ -120,14 +120,14 @@ export default function LandingPage() {
               <Link href="#">Contact</Link>
             </div>
           </div>
-          
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
             <div>
-              Built by <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Nidhi</span>
+              Built by <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Nidhin</span>
             </div>
             <div style={{ display: 'flex', gap: '24px' }}>
-              <a href="https://github.com/" target="_blank" rel="noopener noreferrer" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>GitHub</a>
-              <a href="https://linkedin.com/in/" target="_blank" rel="noopener noreferrer" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>LinkedIn</a>
+              <a href="https://github.com/NidhinSimon" target="_blank" rel="noopener noreferrer" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>GitHub</a>
+              <a href="https://www.linkedin.com/in/nidhinsimon/" target="_blank" rel="noopener noreferrer" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>LinkedIn</a>
             </div>
           </div>
         </div>

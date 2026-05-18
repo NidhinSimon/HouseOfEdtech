@@ -88,9 +88,9 @@ Return ONLY valid JSON (no markdown fences) with this exact structure:
 Resume:
 ${resumeText.slice(0, 6000)}
 ${jobDescription ? `\nJob Description:\n${jobDescription.slice(0, 2000)}` : ''}`;
-
+  const MODEL = 'gemini-2.5-flash';
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,21 +113,93 @@ ${jobDescription ? `\nJob Description:\n${jobDescription.slice(0, 2000)}` : ''}`
   return { ...result, isLocal: false, provider: 'Gemini' };
 }
 
+// ─── Grok cloud provider ─────────────────────────────────────────────────────
+async function grokAnalysis({ resumeText, jobDescription = '' }: AnalyzeParams): Promise<ResumeAnalysisResult> {
+  const apiKey = process.env.NEXT_PUBLIC_GROK_KEY;
+  if (!apiKey) throw new Error('No Grok API key configured');
+
+  const systemPrompt = `You are an expert resume analyzer. Analyze the following resume against the provided job description.
+
+Return ONLY valid JSON (no markdown fences or backticks) with this exact structure:
+{
+  "matchScore": <number 0-100>,
+  "keywords": [<5-10 technical keywords found in resume>],
+  "missingSkills": [<4-6 critical skills missing from resume based on job description>],
+  "optimizedSummary": "<rewritten professional summary>",
+  "optimizedExperience": [
+    { "original": "<original bullet>", "rewritten": "<improved bullet>" }
+  ],
+  "coverLetter": "<short human-like cover letter>",
+  "emailDraft": "<email subject line + short follow-up email>"
+}`;
+
+  const userPrompt = `Resume:
+${resumeText.slice(0, 6000)}
+
+Job Description:
+${jobDescription ? jobDescription.slice(0, 2000) : 'None provided.'}`;
+
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'grok-2',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Grok error ${res.status}`);
+  }
+
+  const data = await res.json();
+  let rawText: string = data?.choices?.[0]?.message?.content ?? '';
+  rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+  const result = JSON.parse(rawText);
+
+  return { ...result, isLocal: false, provider: 'Grok' };
+}
+
 // ─── Main entry point ────────────────────────────────────────────────────────
 export async function analyzeResumeDirect(params: AnalyzeParams): Promise<ResumeAnalysisResult> {
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const grokKey = process.env.NEXT_PUBLIC_GROK_KEY;
+  const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
-  if (!apiKey) {
-    return localAnalysis(params);
+  if (grokKey) {
+    try {
+      console.log('Attempting resume analysis using Grok...');
+      return await grokAnalysis(params);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown Grok error';
+      console.warn('Grok analysis failed, falling back to Gemini or Local:', errorMsg);
+      if (!geminiKey) {
+        throw new Error(`Grok Error: ${errorMsg.substring(0, 50)}... Falling back to local engine.`);
+      }
+    }
   }
 
-  try {
-    return await geminiAnalysis(params);
-  } catch (err: any) {
-    const errorMsg: string = err?.message || 'Unknown error';
-    // Caller handles the toast; re-throw a structured error so caller can fall back
-    throw new Error(`AI Error: ${errorMsg.substring(0, 50)}... Falling back to local engine.`);
+  if (geminiKey) {
+    try {
+      console.log('Attempting resume analysis using Gemini...');
+      return await geminiAnalysis(params);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown Gemini error';
+      console.warn('Gemini analysis failed, falling back to Local:', errorMsg);
+      throw new Error(`Gemini Error: ${errorMsg.substring(0, 50)}... Falling back to local engine.`);
+    }
   }
+
+  // Fallback to local heuristic analyzer
+  console.log('No cloud AI keys configured. Falling back to local heuristic analysis.');
+  return localAnalysis(params);
 }
 
 // ─── Demo mock result ────────────────────────────────────────────────────────

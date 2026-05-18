@@ -1,11 +1,29 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, LayoutDashboard, CircleDollarSign } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export function Navbar() {
   const pathname = usePathname();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="navbar-wrapper">
@@ -25,8 +43,11 @@ export function Navbar() {
             <CircleDollarSign size={16} /> Pricing
           </Link>
         </div>
-        <Link href="/auth" className="btn btn-primary">Get Started →</Link>
+        <Link href={isLoggedIn ? "/dashboard" : "/auth"} className="btn btn-primary">
+          {isLoggedIn ? "Dashboard →" : "Get Started →"}
+        </Link>
       </nav>
     </div>
   );
 }
+

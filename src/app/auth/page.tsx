@@ -1,18 +1,117 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import toast from 'react-hot-toast';
 
-export default function AuthPage() {
+function AuthContent() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPwd, setShowPwd] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle errors redirected back via search params
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      if (errorParam === 'auth-callback-failed') {
+        toast.error('Authentication callback failed. Please try again.');
+      } else {
+        toast.error(decodeURIComponent(errorParam));
+      }
+      
+      // Clear URL params without reloading page
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [searchParams]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/dashboard');
+    if (!email || !password) {
+      toast.error('Please fill in all required fields.');
+      return;
+    }
+    if (!isLogin && !fullName) {
+      toast.error('Please enter your full name.');
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+
+    try {
+      if (isLogin) {
+        // Sign In
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        toast.success('Successfully logged in!');
+        router.push('/dashboard');
+        router.refresh();
+      } else {
+        // Sign Up
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          toast.success('Account created and logged in!');
+          router.push('/dashboard');
+          router.refresh();
+        } else {
+          toast.success('Account created! Please check your email for confirmation.', {
+            duration: 6000,
+          });
+          setIsLogin(true);
+          setPassword('');
+        }
+      }
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'An authentication error occurred';
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const supabase = createClient();
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to initialize Google login';
+      toast.error(errorMsg);
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,12 +186,14 @@ export default function AuthPage() {
             return (
               <button
                 key={tab}
+                disabled={loading}
                 onClick={() => setIsLogin(i === 0)}
                 style={{
                   flex: 1, padding: '8px', fontSize: '13px', fontWeight: 600,
-                  borderRadius: '7px', border: 'none', cursor: 'pointer',
+                  borderRadius: '7px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
                   background: active ? 'var(--bg-card)' : 'transparent',
                   color: active ? '#fff' : 'var(--text-secondary)',
+                  opacity: loading ? 0.7 : 1,
                   boxShadow: active ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
                   transition: 'all 0.15s ease',
                 }}
@@ -113,6 +214,9 @@ export default function AuthPage() {
                 className="input"
                 placeholder="Nidhi Sharma"
                 required
+                disabled={loading}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 style={{ fontSize: '13px' }}
               />
             </div>
@@ -127,6 +231,9 @@ export default function AuthPage() {
               className="input"
               placeholder="name@example.com"
               required
+              disabled={loading}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               style={{ fontSize: '13px' }}
             />
           </div>
@@ -144,14 +251,18 @@ export default function AuthPage() {
                 className="input"
                 placeholder="••••••••"
                 required
+                disabled={loading}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 style={{ fontSize: '13px', paddingRight: '44px' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPwd(!showPwd)}
+                disabled={loading}
                 style={{
                   position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center',
                 }}
               >
@@ -162,17 +273,28 @@ export default function AuthPage() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: '100%', padding: '12px',
               background: 'linear-gradient(135deg, #F97316, #EA580C)',
               border: 'none', borderRadius: '10px',
               fontSize: '14px', fontWeight: 700, color: '#fff',
-              cursor: 'pointer', marginTop: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer', marginTop: '4px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               transition: 'opacity 0.15s ease',
+              opacity: loading ? 0.8 : 1,
             }}
           >
-            {isLogin ? 'Sign In' : 'Create Account'} <ArrowRight size={15} />
+            {loading ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                {isLogin ? 'Signing In...' : 'Creating Account...'}
+              </>
+            ) : (
+              <>
+                {isLogin ? 'Sign In' : 'Create Account'} <ArrowRight size={15} />
+              </>
+            )}
           </button>
         </form>
 
@@ -184,15 +306,20 @@ export default function AuthPage() {
         </div>
 
         {/* Google */}
-        <button style={{
-          width: '100%', padding: '11px',
-          background: 'var(--bg-card-elevated)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          fontSize: '13px', fontWeight: 600, color: '#fff',
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-        }}>
+        <button 
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          style={{
+            width: '100%', padding: '11px',
+            background: 'var(--bg-card-elevated)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '10px',
+            fontSize: '13px', fontWeight: 600, color: '#fff',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
           {/* Google SVG */}
           <svg width="16" height="16" viewBox="0 0 48 48">
             <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.8 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
@@ -207,13 +334,32 @@ export default function AuthPage() {
         <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
           {isLogin ? "Don't have an account? " : 'Already have an account? '}
           <button
+            disabled={loading}
             onClick={() => setIsLogin(!isLogin)}
-            style={{ color: '#F97316', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+            style={{ color: '#F97316', fontWeight: 600, background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '12px' }}
           >
             {isLogin ? 'Sign Up' : 'Sign In'}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        background: 'var(--bg-page)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <Loader2 size={30} className="animate-spin" style={{ color: '#F97316' }} />
+      </div>
+    }>
+      <AuthContent />
+    </Suspense>
   );
 }

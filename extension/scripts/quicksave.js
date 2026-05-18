@@ -1,6 +1,85 @@
 // Applywise Quick Save Card Selector and Mutation Observer Injection
 
 (function() {
+  function cleanText(value) {
+    return (value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function normalizeCompareText(value) {
+    return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  function looksLikeSameJob(expectedTitle, expectedCompany, panelTitle, panelCompany) {
+    const normalizedExpectedTitle = normalizeCompareText(expectedTitle);
+    const normalizedPanelTitle = normalizeCompareText(panelTitle);
+
+    if (!normalizedExpectedTitle || !normalizedPanelTitle) {
+      return false;
+    }
+
+    const titleMatches =
+      normalizedExpectedTitle === normalizedPanelTitle ||
+      normalizedExpectedTitle.includes(normalizedPanelTitle) ||
+      normalizedPanelTitle.includes(normalizedExpectedTitle);
+
+    const normalizedExpectedCompany = normalizeCompareText(expectedCompany);
+    const normalizedPanelCompany = normalizeCompareText(panelCompany);
+    const companyMatches = !normalizedExpectedCompany || !normalizedPanelCompany
+      ? true
+      : normalizedExpectedCompany === normalizedPanelCompany ||
+        normalizedExpectedCompany.includes(normalizedPanelCompany) ||
+        normalizedPanelCompany.includes(normalizedExpectedCompany);
+
+    return titleMatches && companyMatches;
+  }
+
+  function extractLinkedInDescription(card, jobTitle, company) {
+    const panelTitleEl = document.querySelector('.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, h1.t-24');
+    const panelCompanyEl = document.querySelector('.job-details-jobs-unified-top-card__company-name a, .jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name a');
+    const panelDescEl = document.querySelector('#job-details, .jobs-description__content, .jobs-box__html-content, .show-more-less-html__markup, .description__text');
+
+    if (
+      panelTitleEl &&
+      panelDescEl &&
+      looksLikeSameJob(jobTitle, company, panelTitleEl.textContent, panelCompanyEl ? panelCompanyEl.textContent : '')
+    ) {
+      return cleanText(panelDescEl.innerText || panelDescEl.textContent);
+    }
+
+    const snippetNodes = card.querySelectorAll(
+      '.job-card-list__insight, .job-card-container__footer-item, [class*="description-snippet"], [class*="insight"]'
+    );
+
+    return cleanText(
+      Array.from(snippetNodes)
+        .map((node) => cleanText(node.textContent))
+        .filter(Boolean)
+        .join(' ')
+    );
+  }
+
+  function extractIndeedDescription(card, panel, jobTitle, company) {
+    const panelTitleEl = panel
+      ? panel.querySelector('h1.jobsearch-JobInfoHeader-title, [class*="JobInfoHeader-title"], h1')
+      : null;
+    const panelCompanyEl = panel
+      ? panel.querySelector('[data-company-name="true"], a[class*="CompanyPageLink"], [class*="InlineCompanyRating"] a, [class*="InlineCompanyRating"] span')
+      : null;
+    const panelDescEl = panel
+      ? panel.querySelector('#jobDescriptionText, [class*="jobDescriptionText"], [data-testid="jobsearch-JobComponent-description"]')
+      : null;
+
+    if (
+      panelTitleEl &&
+      panelDescEl &&
+      looksLikeSameJob(jobTitle, company, panelTitleEl.textContent, panelCompanyEl ? panelCompanyEl.textContent : '')
+    ) {
+      return cleanText(panelDescEl.innerText || panelDescEl.textContent);
+    }
+
+    const cardSnippet = card.querySelector('.job-snippet, [data-testid="text-snippet"], [class*="job-snippet"]');
+    return cleanText(cardSnippet ? (cardSnippet.innerText || cardSnippet.textContent) : '');
+  }
   
   // Inject save buttons beside job cards
   function injectQuickSaveButtons() {
@@ -90,6 +169,7 @@
     let company = 'Tech Company';
     let jobUrl = window.location.href;
     let jobLocation = '';
+    let jobDescription = '';
 
     if (site === 'linkedin') {
       const titleEl = card.querySelector('.job-card-list__title, [class*="job-card-list__title"]');
@@ -105,6 +185,8 @@
 
       const locEl = card.querySelector('.job-card-container__metadata-item, [class*="metadata-item"]');
       if (locEl) jobLocation = locEl.textContent.trim();
+
+      jobDescription = extractLinkedInDescription(card, jobTitle, company);
     } 
     else if (site === 'indeed') {
       // ── 1. Try the right-side detail panel first (most reliable) ────────────
@@ -145,6 +227,8 @@
         const locEl = card.querySelector('[data-testid="text-location"]');
         if (locEl) jobLocation = locEl.innerText.trim();
       }
+
+      jobDescription = extractIndeedDescription(card, panel, jobTitle, company);
     }
 
     // Set button loading state
@@ -153,13 +237,20 @@
 
     // Send save POST request to Applywise Next.js local server database
     const safeLocation = (jobLocation || '').trim();
+    const safeDescription = cleanText(jobDescription);
+    const safeDescriptionLower = safeDescription.toLowerCase();
     const payload = {
       company:  (company  || 'Unknown').trim(),
       jobTitle: (jobTitle || 'Untitled').trim(),
       jobUrl,
       location: safeLocation,
       status: 'saved',
-      workMode: safeLocation.toLowerCase().includes('remote') ? 'Remote' : 'Hybrid',
+      workMode: safeLocation.toLowerCase().includes('remote') || safeDescriptionLower.includes('remote')
+        ? 'Remote'
+        : safeDescriptionLower.includes('on-site') || safeDescriptionLower.includes('onsite') || safeDescriptionLower.includes('office')
+          ? 'On-site'
+          : 'Hybrid',
+      jobDescription: safeDescription,
       origin: 'extension'
     };
 

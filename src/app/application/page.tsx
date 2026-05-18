@@ -1,35 +1,125 @@
-'use client';
-
 import { Topbar } from '@/components/Topbar';
+import { getApplicationById } from '@/lib/applications';
+import { StatusUpdater } from '@/components/StatusUpdater';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Clock, Briefcase, CalendarCheck, ExternalLink, CheckCircle2, Circle } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowUpRight,
+  Briefcase,
+  CalendarCheck,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileText,
+  Target,
+} from 'lucide-react';
 
-const timeline = [
-  { label: 'Applied', date: '12 May', done: true, active: false },
-  { label: 'Screening', date: '14 May', done: true, active: false },
-  { label: 'Interview', date: '18 May', done: false, active: true },
-  { label: 'Final Round', date: '—', done: false, active: false },
-  { label: 'Result', date: '—', done: false, active: false },
-];
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-const scoreBreakdown = [
-  { label: 'Technical Skills', score: 92, color: '#34D399' },
-  { label: 'Experience Match', score: 85, color: '#60A5FA' },
-  { label: 'Culture Fit', score: 78, color: '#A78BFA' },
-];
+type SearchParamsShape = {
+  id?: string | string[] | undefined;
+};
 
-export default function AppDetailPage() {
+type AppDetailPageProps = {
+  searchParams?: Promise<SearchParamsShape> | SearchParamsShape;
+};
+
+function getCompanyLogoText(name: string) {
+  return name ? name.trim().charAt(0).toUpperCase() : 'J';
+}
+
+function getCompanyLogoColor(name: string) {
+  const colors = ['#60A5FA', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#EC4899', '#3B82F6', '#8B5CF6'];
+  const index = name ? name.charCodeAt(0) % colors.length : 0;
+  return colors[index];
+}
+
+function formatStatus(status: string) {
+  const normalized = (status || '').toLowerCase();
+
+  if (!normalized) return 'Unknown';
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function getStatusTone(status: string) {
+  const normalized = (status || '').toLowerCase();
+
+  if (normalized === 'offer') {
+    return { color: '#34D399', background: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.2)' };
+  }
+
+  if (normalized === 'interview') {
+    return { color: '#60A5FA', background: 'rgba(96,165,250,0.10)', border: 'rgba(96,165,250,0.2)' };
+  }
+
+  if (normalized === 'rejected') {
+    return { color: '#F87171', background: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.2)' };
+  }
+
+  if (normalized === 'saved') {
+    return { color: '#FBBF24', background: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.2)' };
+  }
+
+  return { color: '#A3A3A3', background: 'rgba(163,163,163,0.10)', border: 'rgba(163,163,163,0.2)' };
+}
+
+function formatDate(isoString?: string | null, options?: Intl.DateTimeFormatOptions) {
+  if (!isoString) {
+    return 'Not available';
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return 'Not available';
+  }
+
+  return new Intl.DateTimeFormat('en-IN', options ?? {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function getFollowUpCopy(updatedAt?: string, followUpNeeded?: boolean) {
+  if (followUpNeeded) {
+    return 'Recommended now';
+  }
+
+  if (!updatedAt) {
+    return 'No update recorded';
+  }
+
+  return `Last activity on ${formatDate(updatedAt)}`;
+}
+
+export default async function AppDetailPage({ searchParams }: AppDetailPageProps) {
+  const resolvedSearchParams = await Promise.resolve(searchParams ?? {});
+  const requestedId = Array.isArray(resolvedSearchParams.id)
+    ? resolvedSearchParams.id[0]
+    : resolvedSearchParams.id;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+
+  const application = await getApplicationById(requestedId, userId);
+
   return (
     <>
       <Topbar />
       <main className="main-content">
-
-        {/* Back nav */}
         <Link
           href="/dashboard"
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontSize: '12px', color: 'var(--text-secondary)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '12px',
+            color: 'var(--text-secondary)',
             marginBottom: '24px',
             padding: '6px 12px',
             border: '1px solid var(--border-color)',
@@ -40,208 +130,320 @@ export default function AppDetailPage() {
           <ArrowLeft size={12} /> Back to Dashboard
         </Link>
 
-        {/* App header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+        {!application ? (
+          <div className="card" style={{ padding: '32px', maxWidth: '720px' }}>
             <div style={{
-              width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-              background: 'rgba(66,133,244,0.12)',
-              border: '1px solid rgba(66,133,244,0.25)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 700, fontSize: '20px', color: '#4285F4',
-            }}>G</div>
-            <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '4px' }}>
-                Software Engineer Intern
-              </h1>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 600, color: '#fff' }}>Google</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={11} /> Mountain View, CA</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={11} /> Full-time</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} /> Applied 12 May</span>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <span style={{
-              padding: '5px 12px', fontSize: '12px', fontWeight: 700,
-              color: '#60A5FA', background: 'rgba(96,165,250,0.1)',
-              borderRadius: '7px', border: '1px solid rgba(96,165,250,0.2)',
+              width: '48px',
+              height: '48px',
+              borderRadius: '14px',
+              background: 'rgba(249,115,22,0.12)',
+              border: '1px solid rgba(249,115,22,0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#F97316',
+              marginBottom: '16px',
             }}>
-              Interview Phase
-            </span>
-          </div>
-        </div>
-
-        {/* Main grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
-
-          {/* Left */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-            {/* Timeline */}
-            <div className="card" style={{ padding: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '24px' }}>
-                Application Progress
-              </div>
-              <div style={{ position: 'relative' }}>
-                {/* Connector line */}
-                <div style={{
-                  position: 'absolute', left: '13px', top: '14px',
-                  bottom: '14px', width: '2px',
-                  background: 'var(--bg-card-elevated)',
-                }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                  {timeline.map((step, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', paddingBottom: i < timeline.length - 1 ? '20px' : '0', position: 'relative', zIndex: 1 }}>
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-                        background: step.done || step.active ? (step.done ? '#34D399' : '#F97316') : 'var(--bg-card-elevated)',
-                        border: `2px solid ${step.done ? '#34D399' : step.active ? '#F97316' : 'var(--border-color)'}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: step.active ? '0 0 0 4px rgba(249,115,22,0.15)' : 'none',
-                        transition: 'all 0.2s ease',
-                      }}>
-                        {step.done
-                          ? <CheckCircle2 size={14} color="#fff" />
-                          : step.active
-                            ? <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />
-                            : <Circle size={12} color="var(--text-muted)" />
-                        }
-                      </div>
-                      <div style={{ paddingTop: '4px' }}>
-                        <div style={{
-                          fontSize: '13px', fontWeight: step.active ? 700 : 600,
-                          color: step.done || step.active ? '#fff' : 'var(--text-muted)',
-                        }}>
-                          {step.label}
-                          {step.active && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 700, color: '#F97316', background: 'rgba(249,115,22,0.1)', padding: '2px 7px', borderRadius: '5px' }}>Current</span>}
-                        </div>
-                        {step.date !== '—' && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{step.date}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AlertCircle size={22} />
             </div>
-
-            {/* JD */}
-            <div className="card" style={{ padding: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '20px' }}>
-                Job Description
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <p style={{ marginBottom: '16px' }}>
-                  Google interns are an essential part of our team. We're looking for someone passionate about building products that solve real-world problems at scale.
-                </p>
-                <div style={{ fontWeight: 700, color: '#fff', fontSize: '13px', marginBottom: '10px' }}>Minimum qualifications</div>
-                <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <li>Currently enrolled in a Bachelor's, Master's or PhD in CS or related field</li>
-                  <li>Experience with one or more languages: Java, C/C++, Python, JavaScript, or Go</li>
-                  <li>Familiarity with data structures, algorithms, and systems design</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Right sidebar */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* Match card */}
-            <div className="card" style={{ padding: '22px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '20px' }}>
-                AI Match Analysis
-              </div>
-
-              {/* Ring */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                <div style={{ position: 'relative', width: '100px', height: '100px' }}>
-                  <svg viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg-card-elevated)" strokeWidth="8" />
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="#60A5FA" strokeWidth="8"
-                      strokeDasharray={`${2 * Math.PI * 42 * 0.87} ${2 * Math.PI * 42 * 0.13}`}
-                      strokeLinecap="round" />
-                  </svg>
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: '24px', fontWeight: 700, color: '#60A5FA', lineHeight: 1 }}>87%</span>
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 600 }}>match</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {scoreBreakdown.map((s) => (
-                  <div key={s.label}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
-                      <span style={{ fontWeight: 700, color: s.color }}>{s.score}%</span>
-                    </div>
-                    <div style={{ height: '4px', background: 'var(--bg-card-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${s.score}%`, background: s.color, borderRadius: '2px' }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '18px' }}>
-                {['Strong Python', 'React Expert'].map((tag) => (
-                  <span key={tag} style={{ padding: '3px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(52,211,153,0.08)', color: '#34D399', border: '1px solid rgba(52,211,153,0.2)' }}>{tag}</span>
-                ))}
-                <span style={{ padding: '3px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(251,191,36,0.08)', color: '#FBBF24', border: '1px solid rgba(251,191,36,0.2)' }}>Needs SQL</span>
-              </div>
-            </div>
-
-            {/* Recruiter card */}
-            <div className="card" style={{ padding: '22px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '16px' }}>
-                Recruiter Contact
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <div style={{
-                  width: '38px', height: '38px', borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #60A5FA, #A78BFA)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 700, fontSize: '14px', color: '#fff',
-                }}>SW</div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '14px' }}>Sarah Wilson</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Senior Technical Recruiter</div>
-                </div>
-              </div>
-              <button style={{
-                width: '100%', padding: '10px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                border: '1px solid var(--border-color)',
-                borderRadius: '9px', fontSize: '13px', fontWeight: 600,
-                color: '#fff', background: 'var(--bg-card-elevated)', cursor: 'pointer',
-              }}>
-                <ExternalLink size={13} color="#0A66C2" /> Message on LinkedIn
-              </button>
-            </div>
-
-            {/* Next steps card */}
-            <div className="card" style={{ padding: '22px', background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.15)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#F97316', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '14px' }}>
-                Interview in 3 days
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Your interview is scheduled for <span style={{ color: '#fff', fontWeight: 600 }}>Monday, 18 May at 3:00 PM IST</span>.
-              </div>
-              <button style={{
-                marginTop: '14px', width: '100%', padding: '9px',
+            <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px' }}>Application not found</h1>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '18px' }}>
+              The job you tried to open does not exist anymore or has already been removed from your tracker.
+            </p>
+            <Link
+              href="/dashboard"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 700,
                 background: 'linear-gradient(135deg, #F97316, #EA580C)',
-                border: 'none', borderRadius: '9px',
-                fontSize: '12px', fontWeight: 700, color: '#fff', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              }}>
-                <CalendarCheck size={13} /> Add to Calendar
-              </button>
+                color: '#fff',
+              }}
+            >
+              Return to Dashboard <ArrowUpRight size={13} />
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '18px', marginBottom: '32px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '16px',
+                  flexShrink: 0,
+                  background: `${getCompanyLogoColor(application.company)}1A`,
+                  border: `1px solid ${getCompanyLogoColor(application.company)}33`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '20px',
+                  color: getCompanyLogoColor(application.company),
+                }}>
+                  {getCompanyLogoText(application.company)}
+                </div>
+                <div>
+                  <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '6px' }}>
+                    {application.jobTitle}
+                  </h1>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 600, color: '#fff' }}>{application.company}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Briefcase size={11} /> {application.workMode || 'Work mode unavailable'}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock3 size={11} /> Added {formatDate(application.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: getStatusTone(application.status).color,
+                  background: getStatusTone(application.status).background,
+                  borderRadius: '8px',
+                  border: `1px solid ${getStatusTone(application.status).border}`,
+                }}>
+                  {formatStatus(application.status)}
+                </span>
+                {application.jobUrl && (
+                  <Link
+                    href={application.jobUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '9px 14px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      color: 'var(--text-secondary)',
+                      background: 'var(--bg-card)',
+                    }}
+                  >
+                    View Job Post <ExternalLink size={13} />
+                  </Link>
+                )}
+              </div>
             </div>
 
-          </div>
-        </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '20px', alignItems: 'start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <StatusUpdater applicationId={application.id} initialStatus={application.status} />
+
+                <div className="card" style={{ padding: '24px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '18px' }}>
+                    Application Notes
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                    {application.notes ? (
+                      <p>{application.notes}</p>
+                    ) : (
+                      <p>No notes added yet for this application.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: '24px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '18px' }}>
+                    Job Description
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                    {application.jobDescription
+                      ? application.jobDescription
+                      : 'No job description was stored for this role yet. If this was imported from the extension, you can still use the job link to revisit the original listing.'}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: '24px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '18px' }}>
+                    Skill Snapshot
+                  </div>
+
+                  <div style={{ marginBottom: '18px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', marginBottom: '10px' }}>Matched Keywords</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {(application.keywords && application.keywords.length > 0)
+                        ? application.keywords.map((keyword) => (
+                          <span
+                            key={keyword}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              background: 'rgba(52,211,153,0.08)',
+                              color: '#34D399',
+                              border: '1px solid rgba(52,211,153,0.18)',
+                            }}
+                          >
+                            {keyword}
+                          </span>
+                        ))
+                        : <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>No keywords recorded.</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', marginBottom: '10px' }}>Missing Skills</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {(application.missingSkills && application.missingSkills.length > 0)
+                        ? application.missingSkills.map((skill) => (
+                          <span
+                            key={skill}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              background: 'rgba(251,191,36,0.08)',
+                              color: '#FBBF24',
+                              border: '1px solid rgba(251,191,36,0.18)',
+                            }}
+                          >
+                            {skill}
+                          </span>
+                        ))
+                        : <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>No missing skills flagged.</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="card" style={{ padding: '22px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '18px' }}>
+                    Match Score
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '18px' }}>
+                    <div style={{ position: 'relative', width: '112px', height: '112px' }}>
+                      <svg viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg-card-elevated)" strokeWidth="8" />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          fill="none"
+                          stroke={application.matchScore >= 80 ? '#34D399' : application.matchScore >= 60 ? '#FBBF24' : '#F87171'}
+                          strokeWidth="8"
+                          strokeDasharray={`${2 * Math.PI * 42 * (application.matchScore / 100)} ${2 * Math.PI * 42 * (1 - (application.matchScore / 100))}`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '28px', fontWeight: 700, lineHeight: 1 }}>{application.matchScore}%</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>resume fit</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                    {application.optimizedSummary
+                      ? application.optimizedSummary
+                      : 'No AI summary has been saved for this application yet.'}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: '22px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '16px' }}>
+                    Application Facts
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                      { label: 'Experience level', value: application.experience || 'Not set', icon: <Briefcase size={13} color="#60A5FA" /> },
+                      { label: 'Applied on', value: formatDate(application.createdAt), icon: <CalendarCheck size={13} color="#A78BFA" /> },
+                      { label: 'Last updated', value: formatDate(application.updatedAt), icon: <Clock3 size={13} color="#FBBF24" /> },
+                      { label: 'Follow-up', value: getFollowUpCopy(application.updatedAt, application.followUpNeeded), icon: <CheckCircle2 size={13} color="#34D399" /> },
+                      { label: 'Deadline', value: formatDate(application.deadline), icon: <Target size={13} color="#F87171" /> },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          paddingBottom: '12px',
+                          borderBottom: '1px solid var(--bg-card-elevated)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                          {item.icon}
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.label}</span>
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff', textAlign: 'right' }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: '22px', background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.15)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#F97316', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '14px' }}>
+                    Quick Actions
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {application.jobUrl ? (
+                      <Link
+                        href={application.jobUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#fff',
+                          background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <ExternalLink size={13} /> Open Original Job
+                      </Link>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                        No external job URL was stored for this application.
+                      </div>
+                    )}
+                    <Link
+                      href={`/analyzer?id=${application.id}`}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--text-secondary)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <FileText size={13} /> Optimize for This Role
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </>
   );

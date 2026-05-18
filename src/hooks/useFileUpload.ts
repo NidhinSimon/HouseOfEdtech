@@ -1,7 +1,7 @@
 // src/hooks/useFileUpload.ts
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ACCEPTED_TYPES = [
@@ -24,6 +24,10 @@ export interface FileUploadState {
   };
   processFile: (f: File) => Promise<void>;
   reset: () => void;
+  /** Programmatically set the active file (e.g. from a saved profile) */
+  setFile: React.Dispatch<React.SetStateAction<File | null>>;
+  /** Programmatically set the extracted text (e.g. loaded from Supabase) */
+  setFileText: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function useFileUpload(): FileUploadState {
@@ -56,19 +60,20 @@ export function useFileUpload(): FileUploadState {
         const arrayBuffer = await f.arrayBuffer();
         // Dynamic import to avoid SSR issues with pdfjs-dist
         const pdfjs = await import('pdfjs-dist');
-        // Use the legacy build worker to avoid webpack issues
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        // Use a secure HTTPS CDN worker url to bypass local Windows MIME-type registry issues (.mjs served as text/plain)
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version || '5.7.284'}/build/pdf.worker.min.mjs`;
 
         const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
         const pages: string[] = [];
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          pages.push(content.items.map((item: any) => item.str).join(' '));
+          pages.push(content.items.map((item: unknown) => (item as { str?: string }).str || '').join(' '));
         }
         setFileText(pages.join('\n'));
-      } catch (err) {
-        setError('Failed to extract text from PDF.');
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown PDF parsing error';
+        setError(`Failed to extract text from PDF: ${errorMsg}`);
         setFileText(`[PDF file: ${f.name} – ${(f.size / 1024).toFixed(1)} KB]`);
       }
       return;
@@ -109,5 +114,5 @@ export function useFileUpload(): FileUploadState {
     },
   };
 
-  return { file, fileText, dragging, error, dragProps, processFile, reset };
+  return { file, fileText, dragging, error, dragProps, processFile, reset, setFile, setFileText };
 }

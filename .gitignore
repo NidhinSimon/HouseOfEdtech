@@ -1,6 +1,11 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Next.js build and cache outputs
+/.next/
+/out/
 
-# dependencies
+# Production builds
+/build
+
+# Dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +15,52 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# Testing coverage
 /coverage
 
-# next.js
-/.next/
-/out/
+# Environment files (sensitive configurations)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
-# production
-/build
+# EXCEPTION: Allow environment examples to be committed so other developers know required keys
+!.env.example
+!.env.local.example
 
-# misc
+# Local App Databases / Scraper outputs (avoid personal job lists leakage & merge conflicts)
+/data/applications.json
+
+# AI Agents & Local Workspace Skills
+.agent/
+.agents/
+
+# System / OS files
 .DS_Store
-*.pem
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# debug
+# IDEs and Text Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript / Compilations
+*.tsbuildinfo
+next-env.d.ts
+
+# Debug and log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts

@@ -286,14 +286,17 @@ Applywise features a dual-layer professional testing suite to guarantee executio
      npm run e2e
      ```
 
-### Part V: Brand & Layout Consistency Updates
+### Part V: Brand, Layout, & Experience Consistency Updates
 
 To deliver a polished, distraction-free premium experience:
 * **Unified Global Sticky Footer**: Consolidated manual page footers into a single, beautifully styled dynamic component. Includes credits to `Built by Nidhin` linking directly to:
   * **GitHub**: [NidhinSimon](https://github.com/NidhinSimon)
   * **LinkedIn**: [NidhinSimon](https://www.linkedin.com/in/nidhinsimon/)
 * **Logo Navigation Links**: Both the main homepage `Navbar` brand logo and the `Auth` login card logo are interactive links that redirect to `/`.
-* **Sleek Minimal Navbar**: Removed pricing section links from the top navbar to keep the focus clean, premium, and centered around tracking & analytics power-features.
+* **Sleek Minimal Navbar & Landing**: Removed pricing options from both the top navbar and the landing page to keep the application 100% focused on premium job tracking and AI analysis tools.
+* **Aesthetic Spacing & Bottom Padding**: Redesigned the tail end of the landing page to integrate balanced HSL typography spacing and dynamic visual padding, ensuring a premium, breathing layout.
+* **OAuth URL Auto Clean-up**: Integrated a custom React `useEffect` clean-up hook on the landing page that automatically strips technical URL parameters (`?code=...` or `?state=...`) from the browser's address bar instantly upon successful Google OAuth redirection, maintaining a clean and secure address bar.
+* **Environment-Dynamic Extension Binding**: Re-configured the Chrome extension to automatically bind to either your local dev server or your production-live Vercel URL using Next.js `.env.local` (`NEXT_PUBLIC_LIVE_URL` or `NEXT_PUBLIC_LIVE_URL`), ensuring seamless deployment transition.
 
 ---
 

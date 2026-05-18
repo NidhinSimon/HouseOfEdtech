@@ -3,8 +3,23 @@
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
 import { Target } from 'lucide-react';
+import { useEffect } from 'react';
 
 export default function LandingPage() {
+  // Clear OAuth auth code and state parameters from URL to keep address bar clean
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('code') || url.searchParams.has('state')) {
+        const timer = setTimeout(() => {
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
+
   return (
     <main className="container">
       <Navbar />

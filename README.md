@@ -256,7 +256,16 @@ create trigger on_auth_user_created
 npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to access the premium glassmorphic dashboard!
+Open [http://localhost:3000](http://localhost:3000) (or the production hosted dashboard at [https://house-of-edtech-one.vercel.app](https://house-of-edtech-one.vercel.app)) to access the premium glassmorphic dashboard!
+
+#### 4. Load the Chrome Extension (Job IQ Scraper)
+To leverage the automated job scraping and quick-save features across LinkedIn, Indeed, Naukri, Hirist, and Glassdoor:
+1. Open Google Chrome (or any Chromium-based browser like Brave, Edge, or Opera).
+2. Enter `chrome://extensions/` in your browser URL bar.
+3. Toggle the **Developer mode** switch in the top-right corner to **ON**.
+4. Click the **Load unpacked** button in the top-left corner of the page.
+5. Select the **`extension/`** directory located at the root of this project workspace.
+6. The **Applywise Job IQ Scraper** is now fully active! Pin it from your extensions menu to quickly parse listings and automatically synchronize them with your active dashboard (now default configured to sync with the production site at `https://house-of-edtech-one.vercel.app`).
 
 ### Part IV: Comprehensive Testing Suite
 

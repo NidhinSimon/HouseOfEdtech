@@ -14,7 +14,7 @@
     "*://*.naukri.com/*",
     "*://*.hirist.com/*",
     "*://*.glassdoor.com/*",
-    "http://localhost:3000/*"
+    "https://house-of-edtech-one.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",

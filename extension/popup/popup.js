@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 1. Check local Next.js API server connection
   function checkServerConnection() {
-    fetch('http://localhost:3000/api/applications')
+    fetch('https://house-of-edtech-one.vercel.app/api/applications')
       .then(response => {
         if (response.ok) {
           connectionStatus.textContent = 'Dashboard Connected';
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveStatus.classList.remove('hidden', 'success', 'error');
     saveStatus.textContent = 'Saving application to Applywise...';
 
-    fetch('http://localhost:3000/api/applications', {
+    fetch('https://house-of-edtech-one.vercel.app/api/applications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

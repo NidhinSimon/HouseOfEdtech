@@ -1,4 +1,3 @@
-# 🎯 Applywise — Unified AI Job Application Tracker & Resume Analyzer
 
 Applywise is a high-fidelity, unified job application tracker, ATS resume scorer, and AI-powered optimization engine. Built on a modern tech stack utilizing Next.js 16, Supabase SSR, and a resilient multi-model AI routing layer, it offers users a beautiful glassmorphic experience to streamline their job search, manage application statuses, and optimize their resumes against raw job descriptions.
 

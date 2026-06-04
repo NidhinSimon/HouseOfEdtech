@@ -3,12 +3,13 @@
 import { Topbar } from '@/components/Topbar';
 import type { ApplicationRecord } from '@/lib/applications';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import {
   Briefcase, CalendarCheck, Trophy, Zap,
   ArrowUpRight, ArrowRight, TrendingUp,
   Clock, CheckCircle2, XCircle, Circle, Sparkles,
-  Trash2, AlertTriangle, AlertCircle, RefreshCw
+  Trash2, AlertTriangle, AlertCircle, RefreshCw,
+  Key, Copy, Check, ShieldCheck, Unplug, Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -66,17 +67,135 @@ interface DashboardClientProps {
   userName?: string;
 }
 
+interface ExtensionToken {
+  id: string;
+  tokenPrefix: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  expiresAt: string | null;
+}
+
 export default function DashboardClient({ initialApps, userName = 'User' }: DashboardClientProps) {
   const [apps, setApps] = useState<Application[]>(initialApps);
   const [loading, setLoading] = useState(initialApps.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'overview' | 'extension'>('overview');
+  const [extensionTokens, setExtensionTokens] = useState<ExtensionToken[]>([]);
+  const [extensionToken, setExtensionToken] = useState('');
+  const [extensionLoading, setExtensionLoading] = useState(false);
+  const [extensionCreating, setExtensionCreating] = useState(false);
+  const [extensionError, setExtensionError] = useState<string | null>(null);
+  const [copiedExtensionToken, setCopiedExtensionToken] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
 
   // Custom glassmorphic delete modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [appToDelete, setAppToDelete] = useState<Application | null>(null);
 
   const getApplicationHref = (id: string) => `/application?id=${encodeURIComponent(id)}`;
+
+  const loadExtensionTokens = async () => {
+    try {
+      setExtensionLoading(true);
+      const res = await fetch('/api/extension-token', {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch extension tokens (${res.status})`);
+      }
+
+      const data: unknown = await res.json();
+      const tokens = typeof data === 'object' && data !== null && Array.isArray((data as { tokens?: unknown[] }).tokens)
+        ? (data as { tokens: ExtensionToken[] }).tokens
+        : [];
+
+      setExtensionTokens(tokens);
+      setExtensionError(null);
+    } catch (err) {
+      console.error('Error fetching extension tokens:', err);
+      setExtensionError('Unable to load extension tokens right now.');
+    } finally {
+      setExtensionLoading(false);
+    }
+  };
+
+  const generateExtensionToken = async () => {
+    try {
+      setExtensionCreating(true);
+      const res = await fetch('/api/extension-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ label: 'Chrome Extension' }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to create extension token (${res.status})`);
+      }
+
+      const data = await res.json() as { token?: string; record?: ExtensionToken };
+      if (!data.token || !data.record) {
+        throw new Error('Token API returned an unexpected payload');
+      }
+
+      setExtensionToken(data.token);
+      setExtensionTokens((prev) => [data.record!, ...prev]);
+      setExtensionError(null);
+      toast.success('Extension token generated. Copy it into the extension.');
+    } catch (err) {
+      console.error('Generate extension token error:', err);
+      setExtensionError('Unable to generate an extension token right now.');
+      toast.error('Failed to generate extension token.');
+    } finally {
+      setExtensionCreating(false);
+    }
+  };
+
+  const revokeExtensionToken = async (id: string) => {
+    try {
+      const res = await fetch('/api/extension-token', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to revoke extension token (${res.status})`);
+      }
+
+      setExtensionTokens((prev) => prev.map((token) => (
+        token.id === id ? { ...token, revokedAt: new Date().toISOString() } : token
+      )));
+      toast.success('Extension token revoked.');
+    } catch (err) {
+      console.error('Revoke extension token error:', err);
+      toast.error('Failed to revoke extension token.');
+    }
+  };
+
+  const copyExtensionToken = async () => {
+    if (!extensionToken) return;
+
+    try {
+      await navigator.clipboard.writeText(extensionToken);
+      setCopiedExtensionToken(true);
+      toast.success('Token copied to clipboard.');
+      setTimeout(() => setCopiedExtensionToken(false), 2000);
+    } catch {
+      toast.error('Clipboard unavailable. Select and copy the token manually.');
+    }
+  };
 
   const loadApplications = async (
     options: { showLoader?: boolean; signal?: AbortSignal } = {}
@@ -142,6 +261,12 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
     };
   }, [initialApps.length]);
 
+  useEffect(() => {
+    if (activeDashboardTab === 'extension' && extensionTokens.length === 0 && !extensionLoading) {
+      void loadExtensionTokens();
+    }
+  }, [activeDashboardTab, extensionLoading, extensionTokens.length]);
+
   const requestDelete = (app: Application) => {
     setAppToDelete(app);
     setShowDeleteModal(true);
@@ -193,6 +318,19 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
     : 0;
 
   const staleApplications = apps.filter((a) => a.followUpNeeded);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredApps = normalizedSearchQuery
+    ? apps.filter((app) => {
+        const haystack = [
+          app.company,
+          app.jobTitle,
+          app.status,
+          app.notes || '',
+          Array.isArray(app.keywords) ? app.keywords.join(' ') : '',
+        ].join(' ').toLowerCase();
+        return haystack.includes(normalizedSearchQuery);
+      })
+    : apps;
 
   const stats = [
     { label: 'Total Tracked', value: totalCount, change: 'Across all pipelines', positive: null, icon: <Briefcase size={17} />, accent: '#60A5FA' },
@@ -260,15 +398,43 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
+              onClick={() => setActiveDashboardTab('overview')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '8px 12px', fontSize: '13px', fontWeight: 700,
+                border: activeDashboardTab === 'overview' ? '1px solid rgba(249, 115, 22, 0.45)' : '1px solid var(--border-color)',
+                borderRadius: '10px',
+                color: activeDashboardTab === 'overview' ? '#F97316' : 'var(--text-secondary)',
+                background: activeDashboardTab === 'overview' ? 'rgba(249, 115, 22, 0.08)' : 'var(--bg-card)',
+                cursor: 'pointer',
+              }}
+            >
+              <Briefcase size={13} /> Overview
+            </button>
+            <button
+              onClick={() => setActiveDashboardTab('extension')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '8px 12px', fontSize: '13px', fontWeight: 700,
+                border: activeDashboardTab === 'extension' ? '1px solid rgba(249, 115, 22, 0.45)' : '1px solid var(--border-color)',
+                borderRadius: '10px',
+                color: activeDashboardTab === 'extension' ? '#F97316' : 'var(--text-secondary)',
+                background: activeDashboardTab === 'extension' ? 'rgba(249, 115, 22, 0.08)' : 'var(--bg-card)',
+                cursor: 'pointer',
+              }}
+            >
+              <Key size={13} /> Extension Token
+            </button>
+            <button
               onClick={() => void loadApplications()}
-              disabled={loading}
+              disabled={loading || activeDashboardTab !== 'overview'}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                 padding: '8px 12px', fontSize: '13px', fontWeight: 600,
                 border: '1px solid var(--border-color)', borderRadius: '10px',
                 color: 'var(--text-secondary)', background: 'var(--bg-card)',
-                cursor: loading ? 'wait' : 'pointer',
-                opacity: loading ? 0.8 : 1,
+                cursor: loading ? 'wait' : activeDashboardTab === 'overview' ? 'pointer' : 'not-allowed',
+                opacity: loading || activeDashboardTab !== 'overview' ? 0.65 : 1,
               }}
             >
               <RefreshCw size={13} className={loading ? 'spin-anim' : ''} /> Refresh
@@ -297,6 +463,223 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
             </Link> */}
           </div>
         </div>
+
+        {activeDashboardTab === 'extension' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(280px, 0.8fr)', gap: '20px' }}>
+            <div className="card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '20px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <ShieldCheck size={18} color="#34D399" />
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#34D399', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                      Secure Extension Access
+                    </span>
+                  </div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+                    Connect your Chrome extension
+                  </h2>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '560px' }}>
+                    Generate a scoped token, copy it once, and paste it into the extension Account tab. Saves made by the extension will be linked to your account automatically.
+                  </p>
+                </div>
+                <button
+                  onClick={() => void generateExtensionToken()}
+                  disabled={extensionCreating}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '7px',
+                    padding: '10px 14px', fontSize: '13px', fontWeight: 800,
+                    border: 'none', borderRadius: '10px',
+                    color: '#fff', background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                    cursor: extensionCreating ? 'wait' : 'pointer',
+                    opacity: extensionCreating ? 0.8 : 1,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {extensionCreating ? <RefreshCw size={14} className="spin-anim" /> : <Key size={14} />}
+                  {extensionCreating ? 'Generating...' : 'Generate Token'}
+                </button>
+              </div>
+
+              {extensionError && (
+                <div style={{
+                  background: 'rgba(248, 113, 113, 0.06)',
+                  border: '1px solid rgba(248, 113, 113, 0.18)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  color: '#FCA5A5',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  marginBottom: '16px',
+                }}>
+                  {extensionError}
+                </div>
+              )}
+
+              {extensionToken && (
+                <div style={{
+                  background: 'rgba(249, 115, 22, 0.05)',
+                  border: '1px solid rgba(249, 115, 22, 0.18)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '18px',
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#F97316', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                    Copy this token now
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      readOnly
+                      value={extensionToken}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card-elevated)',
+                        color: '#fff',
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                    <button
+                      onClick={() => void copyExtensionToken()}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(249, 115, 22, 0.3)',
+                        background: 'rgba(249, 115, 22, 0.1)',
+                        color: '#F97316',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {copiedExtensionToken ? <Check size={13} /> : <Copy size={13} />}
+                      {copiedExtensionToken ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  <p style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    For safety, the full token is shown only after generation. If you lose it, revoke this one and generate a new token.
+                  </p>
+                </div>
+              )}
+
+              <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+                Active Tokens
+              </div>
+
+              {extensionLoading ? (
+                <div style={{ padding: '30px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                  <RefreshCw size={16} className="spin-anim" /> Loading tokens...
+                </div>
+              ) : extensionTokens.length === 0 ? (
+                <div style={{ padding: '24px', borderRadius: '10px', border: '1px dashed var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center' }}>
+                  No extension tokens yet. Generate one to connect your browser extension.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {extensionTokens.map((token) => {
+                    const isRevoked = Boolean(token.revokedAt);
+                    return (
+                      <div
+                        key={token.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border-color)',
+                          background: isRevoked ? 'rgba(255,255,255,0.015)' : 'var(--bg-card-elevated)',
+                          opacity: isRevoked ? 0.65 : 1,
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{token.label}</span>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              color: isRevoked ? '#F87171' : '#34D399',
+                              background: isRevoked ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)',
+                              borderRadius: '999px',
+                              padding: '2px 7px',
+                            }}>
+                              {isRevoked ? 'Revoked' : 'Active'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                            {token.tokenPrefix}...
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Created {getFormattedDate(token.createdAt)} · Last used {token.lastUsedAt ? getFormattedDate(token.lastUsedAt) : 'never'}
+                          </div>
+                        </div>
+                        {!isRevoked && (
+                          <button
+                            onClick={() => void revokeExtensionToken(token.id)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '7px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid rgba(248, 113, 113, 0.2)',
+                              background: 'rgba(248, 113, 113, 0.06)',
+                              color: '#F87171',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Unplug size={12} /> Revoke
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="card" style={{ padding: '22px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '14px' }}>
+                Extension Setup
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {[
+                  'Generate a token from this dashboard tab.',
+                  'Copy the token while it is visible.',
+                  'Open the extension Account tab.',
+                  'Paste the token and click Connect.',
+                  'Save a job; the API will resolve your user_id securely.',
+                ].map((step, index) => (
+                  <div key={step} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '7px',
+                      background: 'rgba(249, 115, 22, 0.1)',
+                      color: '#F97316',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}>
+                      {index + 1}
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>{step}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
 
         {error && (
           <div style={{
@@ -408,7 +791,7 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
         <div className="dashboard-grid">
 
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
               <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 Recent Applications
               </span>
@@ -416,15 +799,39 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
                 View all <ArrowRight size={11} />
               </Link>
             </div>
+            {/* <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Search size={16} color="var(--text-secondary)" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  startTransition(() => {
+                    setSearchQuery(value);
+                  });
+                }}
+                placeholder="Search jobs by company, role, status..."
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-card)',
+                  color: '#fff',
+                }}
+              />
+            </div> */}
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', minHeight: '260px' }}>
               {loading ? (
                 <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                   <RefreshCw size={24} className="spin-anim" />
                   <span style={{ fontSize: '13px', fontWeight: 500 }}>Synchronizing dynamic application pipelines...</span>
                 </div>
               ) : apps.length === 0 ? (
-                <div style={{ padding: '60px 30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <div style={{ padding: '60px 30px', minHeight: '240px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', color: 'var(--text-secondary)' }}>
                   <AlertCircle size={28} color="#F97316" style={{ margin: '0 auto 12px auto' }} />
                   <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>No Applications Logged</div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '320px', margin: '0 auto 16px auto' }}>
@@ -433,6 +840,14 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
                   <Link href="/jobs" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '8px', display: 'inline-flex' }}>
                     Discover Roles
                   </Link>
+                </div>
+              ) : filteredApps.length === 0 ? (
+                <div style={{ padding: '40px 30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <AlertCircle size={28} color="#F97316" style={{ margin: '0 auto 12px auto' }} />
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>No matching applications</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '320px', margin: '0 auto 16px auto' }}>
+                    Try a different keyword or clear your search to see more jobs.
+                  </div>
                 </div>
               ) : (
                 <table className="table">
@@ -447,7 +862,7 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
                     </tr>
                   </thead>
                   <tbody>
-                    {apps.map((app) => {
+                    {filteredApps.map((app) => {
                       const logoColor = getCompanyLogoColor(app.company);
                       return (
                         <tr key={app.id} className="clickable-row">
@@ -602,6 +1017,9 @@ export default function DashboardClient({ initialApps, userName = 'User' }: Dash
 
           </div>
         </div>
+
+          </>
+        )}
 
       </main>
 

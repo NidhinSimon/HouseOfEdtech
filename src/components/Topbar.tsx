@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, BarChart2, FileSearch, LogOut
+  LayoutDashboard, BarChart2, FileSearch, LogOut, Plug
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} /> },
   { href: '/analytics', label: 'Analytics', icon: <BarChart2 size={15} /> },
   { href: '/analyzer', label: 'Analyzer', icon: <FileSearch size={15} /> },
+  { href: '/dashboard/connect-extension', label: 'Connect Extension', icon: <Plug size={15} /> },
 ];
 
 export function Topbar() {

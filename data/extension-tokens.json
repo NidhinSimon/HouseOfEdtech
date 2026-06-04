@@ -1,0 +1,90 @@
+[
+  {
+    "id": "44d0976b-e0c6-4145-828d-3ceaaab312b2",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "f00c69bb2e031a99cb21d65931c9fd86e4e982f2f0afefab50f96c469f270463",
+    "tokenPrefix": "aw_ext_3yRVSh5",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-04T04:32:20.629Z",
+    "lastUsedAt": "2026-06-04T04:32:59.624Z",
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "da37fc6d-9dfe-47cb-a023-64ceba777d06",
+    "userId": "e4fab5ed-adb5-4396-8b65-a172cc83ca68",
+    "tokenHash": "fe1adc3844e5dce6c3747f975805864081841176595b6c49003852772f45f979",
+    "tokenPrefix": "aw_ext_Ho4mBax",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T15:54:36.265Z",
+    "lastUsedAt": "2026-06-03T15:55:30.833Z",
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "82140e7d-7ba3-4351-9c70-5fa0f5510c95",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "77e6010a1515ef4ed28379e7128b5a133e84fb9681a7c3abd822c4128a745b34",
+    "tokenPrefix": "aw_ext_33S4dFe",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T15:52:20.754Z",
+    "lastUsedAt": "2026-06-03T15:53:34.125Z",
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "459c6199-cf44-4a50-886d-98900396dd6c",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "fc064bd3e8a7a005fa91d74a08b8ec232a66745179a71069f1524cf7c0149646",
+    "tokenPrefix": "aw_ext_h7hBiLF",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T15:52:04.240Z",
+    "lastUsedAt": null,
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "b7e2d734-9477-494e-8850-0a7ab78dce81",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "e4b16ce72c32dd358a7555d509782aca701d8e46c74567d373b179d5f761d311",
+    "tokenPrefix": "aw_ext_450Nd7q",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T15:45:35.557Z",
+    "lastUsedAt": null,
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "a2446edb-0365-4f7c-bf8a-013a7915b038",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "7c625c728fb55896337e6c83d8ff16790f2776d807e55ad274f8d91ca53d3e08",
+    "tokenPrefix": "aw_ext_Q3XkyaU",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T15:02:37.031Z",
+    "lastUsedAt": null,
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "0c12f257-48d1-4df3-b774-7c6ab949ea1a",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "1dc8f04396114fe27646c812d8e6870e15cf3e635fe1df068e8748ee5ec0eb18",
+    "tokenPrefix": "aw_ext_-0b8Quv",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T14:43:43.253Z",
+    "lastUsedAt": null,
+    "revokedAt": null,
+    "expiresAt": null
+  },
+  {
+    "id": "9308be92-de72-4498-97df-8ebe2e55abac",
+    "userId": "0535f449-0c6c-4777-8182-1bcff53fc32c",
+    "tokenHash": "92c4798ce67a22729021074477f7fc9c17782afb31646ae9cd7ed2228d869a66",
+    "tokenPrefix": "aw_ext_ZlHf99U",
+    "label": "Chrome Extension",
+    "createdAt": "2026-06-03T14:31:53.210Z",
+    "lastUsedAt": null,
+    "revokedAt": null,
+    "expiresAt": null
+  }
+]

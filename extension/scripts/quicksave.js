@@ -254,45 +254,72 @@
       origin: 'extension'
     };
 
-    fetch('https://house-of-edtech-one.vercel.app/api/applications', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (res.ok) {
-          button.innerHTML = '<span>✔ Saved</span>';
-          Object.assign(button.style, {
-            background: 'rgba(16, 185, 129, 0.1)',
-            borderColor: 'rgba(16, 185, 129, 0.25)',
-            color: '#10B981',
-          });
-          // Remove hover states dynamically by cloning
-          const cleanBtn = button.cloneNode(true);
-          cleanBtn.disabled = true;
-          button.parentNode.replaceChild(cleanBtn, button);
-        } else {
-          throw new Error(data.error || 'Failed to save');
-        }
+    chrome.storage.local.get(['extensionToken', 'apiBaseUrl'], (authData) => {
+      const { extensionToken, apiBaseUrl } = authData;
+      const apiEndpoint = `${apiBaseUrl || 'https://house-of-edtech-one.vercel.app'}/api/applications`;
+
+      if (!extensionToken) {
+        handleSaveError(button, new Error('Please paste your Applywise extension token to enable Quick Save.'));
+        return;
+      }
+
+      executeSave(extensionToken, apiEndpoint, payload, button);
+    });
+
+    function executeSave(token, endpoint, savePayload, btn) {
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(savePayload)
       })
-      .catch((err) => {
-        console.error('Applywise Quick Save failed:', err);
-        button.innerHTML = '<span>Offline</span>';
-        button.disabled = false;
-        Object.assign(button.style, {
-          background: 'rgba(239, 68, 68, 0.1)',
-          borderColor: 'rgba(239, 68, 68, 0.25)',
-          color: '#EF4444',
+        .then(async (res) => {
+          const data = await res.json();
+          if (res.ok) {
+            btn.innerHTML = '<span>✔ Saved</span>';
+            Object.assign(btn.style, {
+              background: 'rgba(16, 185, 129, 0.1)',
+              borderColor: 'rgba(16, 185, 129, 0.25)',
+              color: '#10B981',
+            });
+            // Remove hover states dynamically by cloning
+            const cleanBtn = btn.cloneNode(true);
+            cleanBtn.disabled = true;
+            btn.parentNode.replaceChild(cleanBtn, btn);
+          } else {
+            throw new Error(res.status === 401 ? 'Token invalid or revoked. Paste a new dashboard token.' : data.error || 'Failed to save');
+          }
+        })
+        .catch((err) => {
+          handleSaveError(btn, err);
         });
-        setTimeout(() => {
-          button.innerHTML = '<span>✨ Quick Save</span>';
-          button.disabled = false;
-          button.style.background = 'rgba(249, 115, 22, 0.1)';
-          button.style.borderColor = 'rgba(249, 115, 22, 0.25)';
-          button.style.color = '#F97316';
-        }, 3000);
+    }
+
+    function handleSaveError(btn, err) {
+      console.error('Applywise Quick Save failed:', err);
+      
+      if (err.message && err.message.toLowerCase().includes('token')) {
+        btn.innerHTML = '<span>Reconnect</span>';
+      } else {
+        btn.innerHTML = '<span>Failed</span>';
+      }
+      
+      btn.disabled = false;
+      Object.assign(btn.style, {
+        background: 'rgba(239, 68, 68, 0.1)',
+        borderColor: 'rgba(239, 68, 68, 0.25)',
+        color: '#EF4444',
       });
+      setTimeout(() => {
+        btn.innerHTML = '<span>✨ Quick Save</span>';
+        btn.disabled = false;
+        btn.style.background = 'rgba(249, 115, 22, 0.1)';
+        btn.style.borderColor = 'rgba(249, 115, 22, 0.25)';
+        btn.style.color = '#F97316';
+      }, 4000);
+    }
   }
 
   // 1. Run dynamic card injection checker

@@ -14,8 +14,19 @@
     "*://*.naukri.com/*",
     "*://*.hirist.com/*",
     "*://*.glassdoor.com/*",
-    "https://house-of-edtech-one.vercel.app/*"
+    "https://house-of-edtech-one.vercel.app/*",
+    "http://localhost:3000/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost/*",
+      "https://house-of-edtech-one.vercel.app/*",
+      "http://localhost:3000/*"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
@@ -47,3 +58,4 @@
     }
   ]
 }
+

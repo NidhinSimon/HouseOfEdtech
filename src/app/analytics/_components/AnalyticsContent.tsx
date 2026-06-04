@@ -14,19 +14,23 @@ import type { ApplicationRecord } from '@/lib/applications';
 // without creating a new promise each time (which would cause an infinite loop).
 let _promise: Promise<ApplicationRecord[]> | null = null;
 
+
 function getApplicationsPromise(): Promise<ApplicationRecord[]> {
-  // Guard: never run on the server — relative URLs have no hostname there.
   if (typeof window === 'undefined') {
-    // Return a never-resolving promise on the server.
-    // Suspense will fall through to client-side rendering automatically.
-    return new Promise(() => {});
+    return Promise.resolve([]);
   }
+
   if (!_promise) {
-    _promise = fetch('/api/applications').then((res) => {
-      if (!res.ok) throw new Error('Failed to fetch applications');
+    _promise = fetch('/api/applications', {
+      cache: 'no-store',
+    }).then((res) => {
+      if (!res.ok) {
+        throw new Error('Failed to fetch applications');
+      }
       return res.json();
     });
   }
+
   return _promise;
 }
 

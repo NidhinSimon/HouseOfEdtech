@@ -375,3 +375,34 @@ textarea {
   border-color: rgba(239, 68, 68, 0.25);
   color: #EF4444;
 }
+
+/* ── Account / Auth Tab ─────────────────────────────────────────────────── */
+.account-section {
+  padding-bottom: 12px;
+}
+
+.auth-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: border-color 0.2s ease;
+}
+
+.auth-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-status-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Connected state accent */
+.auth-card.connected {
+  border-color: rgba(52, 211, 153, 0.25);
+  background: rgba(52, 211, 153, 0.03);
+}

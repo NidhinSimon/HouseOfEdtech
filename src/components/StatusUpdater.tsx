@@ -1,6 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import {
+  useState,
+  useOptimistic,
+  useTransition
+} from 'react';
+import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 
 interface StatusUpdaterProps {
@@ -12,6 +17,16 @@ export function StatusUpdater({ applicationId, initialStatus }: StatusUpdaterPro
   const [currentStatus, setCurrentStatus] = useState(initialStatus.toLowerCase());
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+const router = useRouter();
+
+const [isPending, startTransition] =
+  useTransition();
+
+const [optimisticStatus, setOptimisticStatus] =
+  useOptimistic(
+    currentStatus,
+    (_, newStatus: string) => newStatus
+  );
 
   const statuses = [
     { label: 'Saved', value: 'saved', activeBg: '#F59E0B', activeText: '#FFFFFF' },
@@ -21,36 +36,63 @@ export function StatusUpdater({ applicationId, initialStatus }: StatusUpdaterPro
     { label: 'Offer', value: 'offer', activeBg: '#10B981', activeText: '#FFFFFF' },
   ];
 
-  const handleStatusChange = async (status: string) => {
-    if (updating || status === currentStatus) return;
-    
-    setUpdating(true);
-    setError(null);
+const handleStatusChange = (
+  status: string
+) => {
+  if (
+    isPending ||
+    status === optimisticStatus
+  ) {
+    return;
+  }
+
+  const previousStatus = currentStatus;
+
+  setError(null);
+
+  startTransition(async () => {
+    // Optimistic UI update
+    setOptimisticStatus(status);
+
     try {
-      const res = await fetch(`/api/applications?id=${applicationId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
+      const res = await fetch(
+        `/api/applications?id=${applicationId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
 
       if (!res.ok) {
-        throw new Error('Failed to update status');
+        throw new Error(
+          'Failed to update status'
+        );
       }
 
+      // Update real state after success
       setCurrentStatus(status);
-      
-      // Auto-reload to refresh SSR content after a brief delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 300);
+
+      // Optional:
+      // Comment this out temporarily if you're
+      // still seeing flicker.
+      router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setUpdating(false);
+      // Rollback
+      setCurrentStatus(previousStatus);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong'
+      );
+
+      console.error(err);
     }
-  };
+  });
+};
 
   return (
     <div className="card" style={{ padding: '24px', position: 'relative' }}>
@@ -58,7 +100,7 @@ export function StatusUpdater({ applicationId, initialStatus }: StatusUpdaterPro
         <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           Application Status
         </div>
-        {updating && (
+        {isPending && (
           <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{
               width: '10px',
@@ -76,12 +118,13 @@ export function StatusUpdater({ applicationId, initialStatus }: StatusUpdaterPro
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
         {statuses.map((s) => {
-          const isActive = currentStatus === s.value;
+        const isActive =
+  optimisticStatus === s.value;
           return (
             <button
               key={s.value}
               onClick={() => handleStatusChange(s.value)}
-              disabled={updating}
+              disabled={isPending}
               style={{
                 padding: '8px 16px',
                 borderRadius: '10px',

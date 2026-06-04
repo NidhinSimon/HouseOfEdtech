@@ -198,6 +198,8 @@ Ensure your local `.env.local` contains the following active credentials:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+EXTENSION_TOKEN_SECRET=generate_a_long_random_secret
 NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key   # Optional Fallback
 NEXT_PUBLIC_GROK_KEY=your_grok_api_key           # Primary AI Engine
 ```
@@ -250,6 +252,8 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 ```
 
+For secure Chrome extension saves, also run the schema in `docs/extension-token-schema.sql`. The extension token API stores only a hashed token, links it to `auth.users.id`, and uses the server-only `SUPABASE_SERVICE_ROLE_KEY` for token metadata.
+
 #### 3. Run the Development Server
 ```bash
 npm install
@@ -264,7 +268,9 @@ To leverage the automated job scraping and quick-save features across LinkedIn, 
 3. Toggle the **Developer mode** switch in the top-right corner to **ON**.
 4. Click the **Load unpacked** button in the top-left corner of the page.
 5. Select the **`extension/`** directory located at the root of this project workspace.
-6. The **Applywise Job IQ Scraper** is now fully active! Pin it from your extensions menu to quickly parse listings and automatically synchronize them with your active dashboard (now default configured to sync with the production site at `https://house-of-edtech-one.vercel.app`).
+6. Sign in to Applywise, open **Dashboard -> Extension Token**, generate a token, and copy it.
+7. Open the extension **Account** tab, paste the `aw_ext_...` token, and click **Import & Connect**.
+8. The **Applywise Job IQ Scraper** is now fully active! Pin it from your extensions menu to quickly parse listings and synchronize them to the exact dashboard user.
 
 ### Part IV: Comprehensive Testing Suite
 

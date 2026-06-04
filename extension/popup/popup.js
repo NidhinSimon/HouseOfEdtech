@@ -1,16 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Tab Switcher Nodes
+  const API_BASE = 'https://house-of-edtech-one.vercel.app';
+  // const API_BASE =  'http://localhost:3000';
+  const CONNECT_PAGE = `${API_BASE}/dashboard/connect-extension`;
+
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabViews = document.querySelectorAll('.tab-view');
 
-  // Scraper Nodes
   const loadingScraper = document.getElementById('loading-scraper');
   const noJobDetected = document.getElementById('no-job-detected');
   const scraperForm = document.getElementById('scraper-form');
   const manualFillBtn = document.getElementById('manual-fill-btn');
   const jdWordCount = document.getElementById('jd-word-count');
-
-  // Input fields (Scraper)
   const jobTitleInput = document.getElementById('job-title');
   const jobCompanyInput = document.getElementById('job-company');
   const jobLocationInput = document.getElementById('job-location');
@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const jobNotesInput = document.getElementById('job-notes');
   const saveStatus = document.getElementById('save-status');
 
-  // Input fields (Profile)
   const profName = document.getElementById('prof-name');
   const profEmail = document.getElementById('prof-email');
   const profPhone = document.getElementById('prof-phone');
@@ -33,20 +32,47 @@ document.addEventListener('DOMContentLoaded', () => {
   const profSponsor = document.getElementById('prof-sponsor');
   const saveProfileBtn = document.getElementById('save-profile-btn');
   const profileStatus = document.getElementById('profile-status');
+
   const connectionStatus = document.getElementById('connection-status');
   const connectionDot = document.querySelector('.status-indicator .dot');
+  const authLabel = document.getElementById('auth-label');
+  const authSublabel = document.getElementById('auth-sublabel');
+  const authIcon = document.getElementById('auth-icon');
+  const tokenPayloadInput = document.getElementById('token-payload-input');
+  const importTokenBtn = document.getElementById('import-token-btn');
+  const disconnectBtn = document.getElementById('disconnect-btn');
+  const importStatus = document.getElementById('import-status');
+  const connectPageLink = document.getElementById('connect-page-link');
 
-  // 1. Check local Next.js API server connection
+  if (connectPageLink) {
+    connectPageLink.href = CONNECT_PAGE;
+  }
+
+  checkServerConnection();
+  loadAuthState();
+  requestJobScraping();
+  loadProfile();
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach((item) => item.classList.remove('active'));
+      tabViews.forEach((view) => view.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.getAttribute('data-tab')).classList.add('active');
+    });
+  });
+
   function checkServerConnection() {
-    fetch('https://house-of-edtech-one.vercel.app/api/applications')
-      .then(response => {
-        if (response.ok) {
+    fetch(`${API_BASE}/api/applications`, { method: 'OPTIONS' })
+      .then((response) => {
+        if (response.ok || response.status === 204) {
           connectionStatus.textContent = 'Dashboard Connected';
           connectionDot.style.backgroundColor = '#10B981';
           connectionDot.classList.add('pulse');
-        } else {
-          throw new Error();
+          return;
         }
+
+        throw new Error('Server unavailable');
       })
       .catch(() => {
         connectionStatus.textContent = 'App Offline';
@@ -54,48 +80,105 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionDot.classList.remove('pulse');
       });
   }
-  checkServerConnection();
 
-  // 2. Tab switcher interaction
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabViews.forEach(v => v.classList.remove('active'));
+  function loadAuthState() {
+    chrome.storage.local.get(['extensionToken'], (data) => {
+      // setAuthUI(Boolean(data.extensionToken));
+    });
+  }
 
-      btn.classList.add('active');
-      const targetTab = btn.getAttribute('data-tab');
-      document.getElementById(targetTab).classList.add('active');
+  // function setAuthUI(connected) {
+  //   if (connected) {
+  //     authIcon.textContent = 'OK';
+  //     authLabel.textContent = 'Account Connected';
+  //     authSublabel.textContent = 'Quick Save is active and will save jobs to your account.';
+  //     authLabel.style.color = '#34D399';
+  //     return;
+  //   }
+
+  //   authIcon.textContent = 'LOCK';
+  //   authLabel.textContent = 'Not Connected';
+  //   authSublabel.textContent = 'Paste your dashboard extension token to enable Quick Save.';
+  //   authLabel.style.color = '#fff';
+  // }
+
+  importTokenBtn.addEventListener('click', () => {
+    const raw = (tokenPayloadInput.value || '').trim();
+    if (!raw) {
+      showImportStatus('error', 'Paste the extension token from the dashboard first.');
+      return;
+    }
+
+    let extensionToken = raw;
+    if (raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw);
+        extensionToken = parsed.extensionToken || parsed.token || '';
+      } catch {
+        showImportStatus('error', 'Invalid JSON. Paste the token directly from the dashboard.');
+        return;
+      }
+    }
+
+    extensionToken = extensionToken.trim();
+    if (!extensionToken.startsWith('aw_ext_')) {
+      showImportStatus('error', 'Invalid token. It should start with aw_ext_.');
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      type: 'SET_EXTENSION_TOKEN',
+      extensionToken,
+      apiBaseUrl: API_BASE,
+    }, (response) => {
+      if (response && response.success) {
+        tokenPayloadInput.value = '';
+        // setAuthUI(true);
+        showImportStatus('success', 'Account connected. Quick Save is now active.');
+      } else {
+        showImportStatus('error', response?.error || 'Failed to store token. Try again.');
+      }
     });
   });
 
-  // 3. Word counter for description textarea
+  disconnectBtn.addEventListener('click', () => {
+    chrome.storage.local.remove(['extensionToken', 'apiBaseUrl', 'accessToken', 'refreshToken', 'supabaseUrl', 'supabaseAnonKey'], () => {
+      // setAuthUI(false);
+      showImportStatus('success', 'Disconnected. Your local extension token has been cleared.');
+    });
+  });
+
+  function showImportStatus(type, message) {
+    importStatus.classList.remove('hidden', 'success', 'error');
+    importStatus.classList.add(type);
+    importStatus.textContent = message;
+    setTimeout(() => importStatus.classList.add('hidden'), 5000);
+  }
+
   jobDescriptionTextarea.addEventListener('input', () => {
     const text = jobDescriptionTextarea.value.trim();
     const words = text ? text.split(/\s+/).length : 0;
     jdWordCount.textContent = `${words} words`;
   });
 
-  // 4. Request Page scraping from content script
   function requestJobScraping() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]) return showManualEntry();
+      if (!tabs[0]) {
+        showManualEntry();
+        return;
+      }
 
       const activeTab = tabs[0];
-      
-      // Inject standard fallbacks if content script isn't responsive
-      const backupTimeout = setTimeout(() => {
-        showManualEntry();
-      }, 1000);
+      const backupTimeout = setTimeout(() => showManualEntry(), 1200);
 
       chrome.tabs.sendMessage(activeTab.id, { action: 'extractJobData' }, (response) => {
         clearTimeout(backupTimeout);
-        
+
         if (chrome.runtime.lastError || !response || !response.success) {
           showManualEntry();
           return;
         }
 
-        // Successfully scraped job details
         loadingScraper.classList.add('hidden');
         noJobDetected.classList.add('hidden');
         scraperForm.classList.remove('hidden');
@@ -105,15 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
         jobLocationInput.value = response.data.location || '';
         jobUrlInput.value = response.data.jobUrl || activeTab.url;
         jobDescriptionTextarea.value = response.data.jobDescription || '';
-        
-        if (response.data.workMode) {
-          jobWorkmodeInput.value = response.data.workMode;
-        }
-        if (response.data.experience) {
-          jobExperienceInput.value = response.data.experience;
-        }
 
-        // Trigger word counter check
+        if (response.data.workMode) jobWorkmodeInput.value = response.data.workMode;
+        if (response.data.experience) jobExperienceInput.value = response.data.experience;
+
         jobDescriptionTextarea.dispatchEvent(new Event('input'));
       });
     });
@@ -133,13 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Trigger scraper routine on open
-  requestJobScraping();
+  scraperForm.addEventListener('submit', (event) => {
+    event.preventDefault();
 
-  // 5. Submit Scraped Job to Local Server API
-  scraperForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    
     const payload = {
       company: jobCompanyInput.value.trim(),
       jobTitle: jobTitleInput.value.trim(),
@@ -148,44 +222,73 @@ document.addEventListener('DOMContentLoaded', () => {
       experience: jobExperienceInput.value,
       jobDescription: jobDescriptionTextarea.value.trim(),
       notes: jobNotesInput.value.trim(),
-      status: 'saved', // Extension entries default to 'saved' per specs
-      origin: 'extension'
+      status: 'saved',
+      origin: 'extension',
     };
 
     saveStatus.classList.remove('hidden', 'success', 'error');
-    saveStatus.textContent = 'Saving application to Applywise...';
+    saveStatus.textContent = 'Authenticating...';
 
-    fetch('https://house-of-edtech-one.vercel.app/api/applications', {
+    chrome.storage.local.get(['extensionToken'], (authData) => {
+      const { extensionToken } = authData;
+
+      if (!extensionToken) {
+        saveStatus.classList.add('error');
+        saveStatus.textContent = 'Not connected. Open the Account tab to paste your dashboard token.';
+        return;
+      }
+
+      saveStatus.textContent = 'Saving application to Applywise...';
+      executeSave(extensionToken, payload);
+    });
+  });
+
+  function executeSave(token, payload) {
+    fetch(`${API_BASE}/api/applications`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     })
       .then(async (res) => {
         const data = await res.json();
+
         if (res.ok) {
           saveStatus.classList.add('success');
-          saveStatus.textContent = '✨ Saved successfully to Applywise!';
-          setTimeout(() => {
-            saveStatus.classList.add('hidden');
-          }, 3000);
-        } else {
-          throw new Error(data.error || 'Failed to save job details');
+          saveStatus.textContent = 'Saved successfully to Applywise.';
+          setTimeout(() => saveStatus.classList.add('hidden'), 3500);
+          return;
         }
+
+        if (res.status === 401) {
+          saveStatus.classList.add('error');
+          saveStatus.textContent = 'Token invalid or revoked. Paste a new dashboard token.';
+          switchToAccountTab();
+          return;
+        }
+
+        throw new Error(data.error || `Server returned ${res.status}`);
       })
       .catch((err) => {
         saveStatus.classList.add('error');
-        saveStatus.textContent = err.message || 'Server Offline. Start Next.js dev server first.';
+        saveStatus.textContent = err.message || 'Network error. Applywise server may be offline.';
       });
-  });
+  }
 
-  // 6. Candidate Profile Autofill configuration (storage sync)
+  function switchToAccountTab() {
+    tabButtons.forEach((button) => button.classList.remove('active'));
+    tabViews.forEach((view) => view.classList.remove('active'));
+    const accountBtn = document.querySelector('[data-tab="tab-account"]');
+    const accountView = document.getElementById('tab-account');
+    if (accountBtn) accountBtn.classList.add('active');
+    if (accountView) accountView.classList.add('active');
+  }
+
   function loadProfile() {
-    const keys = [
-      'name', 'email', 'phone', 'expectedSalary', 
-      'linkedin', 'github', 'relocate', 'noticePeriod', 'sponsor'
-    ];
-    
-    // Check if chrome.storage is supported
+    const keys = ['name', 'email', 'phone', 'expectedSalary', 'linkedin', 'github', 'relocate', 'noticePeriod', 'sponsor'];
+
     if (chrome && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.get(keys, (res) => {
         if (res.name) profName.value = res.name;
@@ -198,12 +301,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.noticePeriod) profNotice.value = res.noticePeriod;
         if (res.sponsor) profSponsor.value = res.sponsor;
       });
-    } else {
-      // Fallback for standard browser window debugging
-      const localProfile = JSON.parse(localStorage.getItem('applywise_candidate_profile') || '{}');
-      if (localProfile.name) profName.value = localProfile.name;
-      if (localProfile.email) profEmail.value = localProfile.email;
+      return;
     }
+
+    const localProfile = JSON.parse(localStorage.getItem('applywise_candidate_profile') || '{}');
+    if (localProfile.name) profName.value = localProfile.name;
+    if (localProfile.email) profEmail.value = localProfile.email;
   }
 
   saveProfileBtn.addEventListener('click', () => {
@@ -216,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
       github: profGithub.value.trim(),
       relocate: profRelocate.value,
       noticePeriod: profNotice.value,
-      sponsor: profSponsor.value
+      sponsor: profSponsor.value,
     };
 
     profileStatus.classList.remove('hidden', 'success', 'error');
@@ -225,26 +328,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chrome && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.set(profile, () => {
         profileStatus.classList.add('success');
-        profileStatus.textContent = '✨ Profile configuration updated!';
-        
-        // Notify active tab that the profile details changed
+        profileStatus.textContent = 'Profile configuration updated.';
+
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'profileUpdated', profile });
-          }
+          if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { action: 'profileUpdated', profile });
         });
 
-        setTimeout(() => {
-          profileStatus.classList.add('hidden');
-        }, 3000);
+        setTimeout(() => profileStatus.classList.add('hidden'), 3000);
       });
-    } else {
-      localStorage.setItem('applywise_candidate_profile', JSON.stringify(profile));
-      profileStatus.classList.add('success');
-      profileStatus.textContent = '✨ Profile saved to browser localstorage!';
+      return;
     }
-  });
 
-  // Load profile settings on start
-  loadProfile();
+    localStorage.setItem('applywise_candidate_profile', JSON.stringify(profile));
+    profileStatus.classList.add('success');
+    profileStatus.textContent = 'Profile saved to browser localStorage.';
+  });
 });

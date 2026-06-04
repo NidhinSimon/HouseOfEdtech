@@ -12,6 +12,8 @@ import {
   type ApplicationRecord,
 } from '@/lib/applications';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAnonClient } from '@supabase/supabase-js';
+import { isLikelyExtensionToken, verifyExtensionToken } from '@/lib/extensionTokens';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,6 +24,76 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+function normalizeDuplicateText(value: unknown) {
+  return typeof value === 'string'
+    ? value.replace(/\s+/g, ' ').trim().toLowerCase()
+    : '';
+}
+
+function getComparableJobUrl(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  try {
+    const url = new URL(value.trim());
+    const indeedJobKey = url.searchParams.get('jk');
+    if (indeedJobKey) {
+      return `${url.hostname.toLowerCase()}:indeed:${indeedJobKey}`;
+    }
+
+    const linkedInMatch = url.pathname.match(/\/jobs\/view\/(\d+)/);
+    if (linkedInMatch) {
+      return `${url.hostname.toLowerCase()}:linkedin:${linkedInMatch[1]}`;
+    }
+
+    return `${url.hostname.toLowerCase()}${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return normalizeDuplicateText(value);
+  }
+}
+
+/**
+ * Resolves the authenticated Supabase user from either:
+ * 1. An Authorization: Bearer <access_token> header (Chrome Extension path)
+ * 2. Cookie-based session (Next.js web dashboard path)
+ *
+ * Never trusts any userId sent in the request body.
+ */
+async function resolveUser(request: Request) {
+  // ── Path 1: Bearer token from Chrome Extension ──────────────────────────
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token) {
+      if (isLikelyExtensionToken(token)) {
+        const extensionAuth = await verifyExtensionToken(token);
+        if (extensionAuth) {
+          return { user: { id: extensionAuth.userId }, source: 'extension-token' as const };
+        }
+
+        return { user: null, source: 'extension-token' as const };
+      }
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      // Use a lightweight anon client — only needed to verify the JWT
+      const anonClient = createAnonClient(supabaseUrl, supabaseAnonKey);
+      const { data: { user }, error } = await anonClient.auth.getUser(token);
+      if (!error && user) {
+        return { user, source: 'bearer' as const };
+      }
+      // Token present but invalid/expired → reject rather than fall-through
+      return { user: null, source: 'bearer' as const };
+    }
+  }
+
+  // ── Path 2: Cookie session (web dashboard) ───────────────────────────────
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return { user, source: 'cookie' as const };
+}
 
 // Handle OPTIONS preflight check requests
 export async function OPTIONS() {
@@ -38,8 +110,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await resolveUser(request);
     const userId = user?.id;
 
     if (id) {
@@ -78,9 +149,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Company and Job Title are required fields' }, { status: 400, headers: corsHeaders });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Resolve user via Bearer token (extension) or cookie session (web)
+    const { user } = await resolveUser(request);
     const userId = user?.id;
+
+    // ── Security gate: extension requests MUST be authenticated ─────────────
+    // If the request came from the extension (has a Bearer header) but the token
+    // is invalid or missing, reject it. Never allow anonymous extension saves.
+    const authHeader = request.headers.get('authorization');
+    const isExtensionRequest = body.origin === 'extension' || (authHeader && authHeader.startsWith('Bearer '));
+    if (isExtensionRequest && !userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please connect your Applywise account via the dashboard before saving jobs.' },
+        { status: 401, headers: corsHeaders }
+      );
+    }
 
     let apps = readDb();
     if (isSupabaseConfigured()) {
@@ -97,12 +180,29 @@ export async function POST(request: Request) {
       apps = apps.filter((app) => !app.userId);
     }
 
-    // Check duplicate: title + company
+    // Check duplicate. Extension saves are posting-aware because multiple jobs can
+    // share the same company and title while having different job board URLs.
+    const normalizedCompany = normalizeDuplicateText(company);
+    const normalizedJobTitle = normalizeDuplicateText(jobTitle);
+    const comparableJobUrl = getComparableJobUrl(normalizedJobUrl);
     const duplicate = apps.find(
-      (app) =>
-        (app.company || '').toLowerCase() === company.toLowerCase() &&
-        (app.jobTitle || '').toLowerCase() === jobTitle.toLowerCase() &&
-        (!userId || app.userId === userId)
+      (app) => {
+        const sameCompanyAndTitle =
+          normalizeDuplicateText(app.company) === normalizedCompany &&
+          normalizeDuplicateText(app.jobTitle) === normalizedJobTitle &&
+          (!userId || app.userId === userId);
+
+        if (!sameCompanyAndTitle) {
+          return false;
+        }
+
+        if (!isExtensionRequest) {
+          return true;
+        }
+
+        const existingJobUrl = getComparableJobUrl(app.jobUrl);
+        return Boolean(comparableJobUrl && existingJobUrl && comparableJobUrl === existingJobUrl);
+      }
     );
 
     if (duplicate) {
@@ -129,6 +229,10 @@ export async function POST(request: Request) {
       }
 
       if (Object.keys(duplicateUpdates).length === 0) {
+        if (isExtensionRequest) {
+          return NextResponse.json(duplicate, { status: 200, headers: corsHeaders });
+        }
+
         return NextResponse.json({ error: 'Application for this role at this company already exists.' }, { status: 409, headers: corsHeaders });
       }
 
@@ -207,8 +311,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID parameter is required' }, { status: 400, headers: corsHeaders });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await resolveUser(request);
     const userId = user?.id;
 
     // Delete from Supabase if configured
@@ -252,8 +355,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { status, notes, company, jobTitle, jobUrl, matchScore, missingSkills, keywords, optimizedSummary, jobDescription, workMode, experience, deadline } = body;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await resolveUser(request);
     const userId = user?.id;
 
     const updates: Partial<ApplicationRecord> = {};
